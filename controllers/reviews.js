@@ -1,19 +1,30 @@
 const Review = require("../models/review.js");
 const Listing = require("../models/listing.js");
+const ExpressError = require("../utils/ExpressError.js");
 
 module.exports.createReview = async (req , res) => {
-     let listing = await Listing.findById(req.params.id);
-     let newReview = new Review(req.body.review);
+     const { id } = req.params;
+     const listing = await Listing.findById(id);
+     if (!listing) {
+          throw new ExpressError(404, "Listing not found");
+     }
+
+     const newReview = new Review(req.body.review);
      newReview.author = req.user._id;
-     console.log(newReview);
-     listing.reviews.push(newReview);
 
      await newReview.save();
-     await listing.save();
+     const updatedListing = await Listing.findByIdAndUpdate(
+          id,
+          { $push: { reviews: newReview._id } },
+          { runValidators: true }
+     );
+     if (!updatedListing) {
+          await Review.findByIdAndDelete(newReview._id);
+          throw new ExpressError(404, "Listing not found");
+     }
 
-     console.log("new review saved");
      req.flash("success", "New review added successfully!");
-     res.redirect(`/listings/${listing._id}`);
+     res.redirect(`/listings/${updatedListing._id}`);
 };
 
 module.exports.destroyReview = async (req , res) =>{
@@ -25,4 +36,3 @@ module.exports.destroyReview = async (req , res) =>{
        req.flash("success", "Review deleted successfully!");
        res.redirect(`/listings/${id}`);
 };
-
