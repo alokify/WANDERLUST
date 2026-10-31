@@ -1,0 +1,157 @@
+if(process.env.NODE_ENV != "production"){
+    require("dotenv").config();
+}
+// require('dotenv').config()
+
+
+const express = require("express");
+const app = express();
+const mongoose = require("mongoose");
+// const Listing = require("./models/listing.js");
+const path = require("path");
+const methodOverride = require("method-override");
+const ejsMate = require("ejs-mate");
+// const wrapAsync = require("./utils/wrapAsync.js");
+const ExpressError = require("./utils/ExpressError.js");
+// const { reviewSchema } = require("./schema.js");
+// const Review = require("./models/review.js");
+const session = require("express-session");
+const { MongoStore } = require("connect-mongo");
+const flash = require("connect-flash");
+const passport = require("passport");
+const LocalStrategy = require("passport-local");
+const User = require("./models/user.js");
+
+
+const listingRoute = require("./route/listing.js");
+const reviewRoute = require("./route/review.js");
+const userRoute = require("./route/user.js");
+
+
+// path - views 
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"));
+// method overriding
+app.use(express.urlencoded({ extended: true}) );
+app.use(methodOverride("_method"));
+// ejs-mate
+app.engine("ejs", ejsMate);
+//css
+app.use(express.static(path.join(__dirname, "/public"))); 
+
+
+// app.use((req, res, next) => {
+//     res.setHeader(
+//         "Content-Security-Policy",
+//         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://localhost:8080 ws://localhost:8080"
+//     );
+//     next();
+// });
+
+//MONGO-DB
+const MONGO_URL = "mongodb://127.0.0.1:27017/wanderlust";
+const dns = require("node:dns");
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
+const dbUrl = process.env.ATLASDB_URL?.trim();
+const databaseUrl = MONGO_URL;
+
+
+const store = MongoStore.create({
+    mongoUrl: databaseUrl,
+    crypto: {   
+        secret: process.env.SECRET,
+    },
+    touchAfter: 24 * 3600,
+});
+
+
+
+//COOKIES
+const sessionOptions = {
+    secret: process.env.SECRET,
+    resave: false,
+    saveUninitialized: true,
+    store,
+    cookie: {
+        expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        maxAge: 7 * 24 *60 * 60 * 1000,
+        httpOnly: true,
+    },
+};
+
+
+// AUTHENTICATION & PASSPORT (npm and documentation).
+app.use(session(sessionOptions));
+app.use(flash());
+
+app.use(passport.initialize());
+app.use(passport.session());
+passport.use(new LocalStrategy(User.authenticate()));
+
+passport.serializeUser( User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
+
+app.use((req, res, next) => {
+    res.locals.success = req.flash("success");
+    res.locals.error = req.flash("error");
+    res.locals.currUser = req.user;
+    next();
+});
+
+// app.get("/demouser", async (req , res) => {
+//      let fakeUser = new User({
+//         email: "student2gmail.com",
+//         username: "delta-student"
+//      });
+
+//      let registeredUser = await User.register( fakeUser , "helloworld");
+//      res.send(registeredUser);
+// })
+
+
+app.use("/", listingRoute);
+app.use("/listings/:id/reviews", reviewRoute);
+app.use("/", userRoute);
+
+// app.get("/testListing", async (req , res) => {
+//     let sampleListing = new Listing ({
+//         title: "My new villa",
+//         description: "By the beaches",
+//         price: 1200,
+//         location: "Calangute, Goa",
+//         country:"India",
+//     });
+
+//     await sampleListing.save();
+//     console.log(" Sample was saved ");
+//     res.send(" Successfully testing ");
+
+// });
+
+app.use(( req , res , next ) => {
+ next(new ExpressError(404, "Page Not Found!"));
+});
+
+app.use((err , req , res , next) => {
+   let { statusCode=500 , message= "something went wrong!" } = err;
+   res.status(statusCode).render("error.ejs", {message});
+});
+
+async function startServer() {
+    if (!/^mongodb(?:\+srv)?:\/\//i.test(databaseUrl)) {
+        throw new Error(
+            'The MongoDB URL must start with "mongodb://" or "mongodb+srv://". Check ATLASDB_URL in your environment or .env file.'
+        );
+    }
+
+    await mongoose.connect(databaseUrl);
+    console.log("Connected to MongoDB");
+    app.listen(8080, () => {
+        console.log("server is listening to port 8080");
+    });
+}
+
+startServer().catch((err) => {
+    console.error("Failed to start server:", err);
+    process.exitCode = 1;
+});
