@@ -1,6 +1,6 @@
 <% layout("layouts/boilerplate") %>
 <script>
-     const mapToken = "<%= process.env.MAP_TOKEN %>";
+     const mapToken = "<%= process.env.VITE_MAPBOX_TOKEN %>";
      const listing = <%- JSON.stringify(listing) %>;
     //  console.log(mapToken);
 </script>
@@ -130,7 +130,7 @@
     </div>
 </div>
 
-<script src="/js/map.js"></script>
+<script src="/JS/map.js"></script>
 
 
 

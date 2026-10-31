@@ -1,6 +1,9 @@
 const Listing = require("../models/listing");
 const mbxGeocoding = require('@mapbox/mapbox-sdk/services/geocoding');
-const mapBoxToken = process.env.MAP_TOKEN;
+const mapBoxToken = process.env.VITE_MAPBOX_TOKEN?.trim();
+if (!mapBoxToken) {
+    throw new Error("VITE_MAPBOX_TOKEN is not set. Add it to your environment or .env file.");
+}
 const geocodingClient = mbxGeocoding({ accessToken: mapBoxToken });
 
 
@@ -95,4 +98,3 @@ module.exports.destroyListing = async (req ,res) => {
     req.flash("success", "Listing deleted successfully!");
     res.redirect("/listings");
 };
-

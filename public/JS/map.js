@@ -1,6 +1,5 @@
 
-     {/* let mapToken = mapToken; */}
-     mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
+     mapboxgl.accessToken = mapToken;
      
     const map = new mapboxgl.Map({
         container: 'map', // container ID
